@@ -1,66 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GPS Tracker Demo</title>
-
+  <title>Real-Time GPS Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #f5f5f5;
-    }
-    #map {
-      height: 95vh;
-      width: 100%;
-    }
-    .header {
-      padding: 10px;
-      background: #222;
-      color: white;
-      text-align: center;
-      font-size: 20px;
-      font-weight: bold;
-    }
+    body { margin: 0; padding: 0; }
+    #map { height: 100vh; width: 100%; }
   </style>
 </head>
-
 <body>
 
-<div class="header">GPS Tracker Test (Mock Data)</div>
 <div id="map"></div>
 
-<script>
-  // Initialize map
-  var map = L.map('map').setView([23.8103, 90.4125], 14);
+<!-- Supabase + Map Logic -->
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
-  }).addTo(map);
+  // ⭐ YOUR SUPABASE CONFIG (FULLY UPDATED) ⭐
+  const supabaseUrl = "https://jobjdkexdsinichnjhwy.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvYmpka2V4ZHNpbmljaG5qaHd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3MDg3MjYsImV4cCI6MjA3ODI4NDcyNn0.ScepgA3T4LkgGycY1V2U1yE1Ct9Y_TWOdc1H63PqYE0";
 
-  // Marker (initial dummy)
-  var marker = L.marker([23.8103, 90.4125]).addTo(map);
+  const db = createClient(supabaseUrl, supabaseKey);
 
-  async function updateLocation() {
-    try {
-      let res = await fetch("location.json?_=" + Date.now()); // avoid caching
-      let data = await res.json();
+  // ⭐ MAP INITIALIZATION ⭐
+  const map = L.map('map').setView([23.8103, 90.4125], 14);
 
-      marker.setLatLng([data.lat, data.lng]);
-      map.setView([data.lat, data.lng]);
+  // ⭐ MAPTILER (GOOGLE-LIKE STYLE) ⭐
+  L.tileLayer(
+    "https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=MRfMZ7betpgvUeKc6DFJ",
+    { maxZoom: 20 }
+  ).addTo(map);
 
-    } catch (err) {
-      console.log("Error loading GPS data", err);
+  const marker = L.marker([23.8103, 90.4125]).addTo(map);
+
+  // ⭐ REAL-TIME GPS FETCH ⭐
+  async function updateGPS() {
+    const { data, error } = await db
+      .from("gps")
+      .select("*")
+      .order("id", { ascending: false })
+      .limit(1);
+
+    if (data && data.length > 0) {
+      const point = data[0];
+      marker.setLatLng([point.lat, point.lng]);
+      map.setView([point.lat, point.lng]);
     }
   }
 
-  // Update every 2 seconds
-  setInterval(updateLocation, 2000);
-  updateLocation();
+  setInterval(updateGPS, 2000);
+  updateGPS();
 </script>
 
 </body>
