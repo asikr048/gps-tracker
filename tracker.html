@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Bus Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; }
+        .status {
+            position: absolute; top: 10px; left: 50%; 
+            transform: translateX(-50%); z-index: 1000;
+            background: white; padding: 10px 20px; border-radius: 20px;
+            font-family: sans-serif; font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="status">Live Tracking: <span id="info">Connecting...</span></div>
+    <div id="map"></div>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const supabaseUrl = 'YOUR_SUPABASE_URL_HERE';
+        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY_HERE';
+        const maptilerKey = 'YOUR_MAPTILER_KEY_HERE';
+
+        // --- 2. SETUP ---
+        const db = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // Init Map (Default center Rajshahi)
+        const map = L.map('map').setView([24.363589, 88.628372], 15);
+
+        // Add Google-like Map Layer
+        L.tileLayer(`https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=${maptilerKey}`, {
+            maxZoom: 20,
+            attribution: '&copy; MapTiler'
+        }).addTo(map);
+
+        // Add Marker
+        const marker = L.marker([24.363589, 88.628372]).addTo(map);
+
+        // --- 3. REAL-TIME UPDATE FUNCTION ---
+        async function fetchLocation() {
+            const { data, error } = await db
+                .from('gps')
+                .select('*')
+                .order('id', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                console.error("Supabase Error:", error);
+                document.getElementById('info').innerText = "Error!";
+                return;
+            }
+
+            if (data && data.length > 0) {
+                const gps = data[0];
+                const lat = gps.lat;
+                const lng = gps.lng;
+
+                // Move Marker smoothly
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], map.getZoom()); // Keep zoom, follow bus
+                
+                document.getElementById('info').innerText = `Active (Lat: ${lat.toFixed(4)})`;
+                console.log("Updated:", lat, lng);
+            }
+        }
+
+        // Fetch every 2 seconds
+        setInterval(fetchLocation, 2000);
+        fetchLocation(); // Run once immediately
+    </script>
+</body>
+</html>
